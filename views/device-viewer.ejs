@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= device.name %> - ESP32-CAM Viewer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/dashboard" class="text-blue-600 hover:text-blue-800 mr-4">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        Back to Dashboard
+                    </a>
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-camera text-blue-500 mr-2"></i>
+                            <%= device.name %>
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span class="text-sm text-gray-700">
+                        <i class="fas fa-user mr-1"></i>
+                        <%= user.email %>
+                    </span>
+                    <form method="POST" action="/logout" class="inline">
+                        <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm">
+                            <i class="fas fa-sign-out-alt mr-1"></i>
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Video Stream -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow">
+                    <div class="p-6 border-b border-gray-200">
+                        <div class="flex items-center justify-between">
+                            <h2 class="text-lg font-medium text-gray-900">Live Stream</h2>
+                            <div class="flex items-center space-x-2">
+                                <span id="streamStatus" class="flex items-center text-sm">
+                                    <i class="fas fa-circle text-xs mr-1"></i>
+                                    <span id="statusText">Checking...</span>
+                                </span>
+                                <button
+                                    onclick="refreshStream()"
+                                    class="text-gray-500 hover:text-gray-700 p-1"
+                                    title="Refresh stream"
+                                >
+                                    <i class="fas fa-refresh"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="p-6">
+                        <div class="relative bg-black rounded-lg overflow-hidden" style="aspect-ratio: 16/9;">
+                            <img
+                                id="streamImage"
+                                src="/api/view/<%= device.id %>?key=<%= device.viewerApiKey %>&t=<%= Date.now() %>"
+                                alt="<%= device.name %> Stream"
+                                class="w-full h-full object-contain"
+                                style="display: none;"
+                                onload="onStreamLoad()"
+                                onerror="onStreamError()"
+                            >
+                            
+                            <!-- Loading State -->
+                            <div id="loadingState" class="absolute inset-0 flex items-center justify-center">
+                                <div class="text-center text-white">
+                                    <i class="fas fa-spinner fa-spin text-4xl mb-4"></i>
+                                    <p class="text-lg">Connecting to stream...</p>
+                                    <p class="text-sm text-gray-300 mt-2">Make sure your ESP32-CAM is connected and streaming</p>
+                                </div>
+                            </div>
+                            
+                            <!-- Error State -->
+                            <div id="errorState" class="absolute inset-0 flex items-center justify-center" style="display: none;">
+                                <div class="text-center text-white">
+                                    <i class="fas fa-exclamation-triangle text-4xl mb-4 text-red-400"></i>
+                                    <p class="text-lg">Stream not available</p>
+                                    <p class="text-sm text-gray-300 mt-2">Device may be offline or not streaming</p>
+                                    <button
+                                        onclick="refreshStream()"
+                                        class="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
+                                    >
+                                        <i class="fas fa-refresh mr-2"></i>
+                                        Try Again
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Stream Controls -->
+                        <div class="mt-4 flex items-center justify-between">
+                            <div class="flex items-center space-x-4">
+                                <button
+                                    onclick="toggleFullscreen()"
+                                    class="text-gray-600 hover:text-gray-800 p-2"
+                                    title="Fullscreen"
+                                >
+                                    <i class="fas fa-expand"></i>
+                                </button>
+                                <button
+                                    onclick="takeScreenshot()"
+                                    class="text-gray-600 hover:text-gray-800 p-2"
+                                    title="Take Screenshot"
+                                >
+                                    <i class="fas fa-camera"></i>
+                                </button>
+                            </div>
+                            <div class="text-sm text-gray-500">
+                                <span id="viewerCount">0</span> viewers
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Device Info -->
+            <div class="space-y-6">
+                <!-- Device Status -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Device Status</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Status</span>
+                            <span id="deviceStatus" class="text-sm font-medium">
+                                <i class="fas fa-circle text-xs mr-1"></i>
+                                Checking...
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Last Active</span>
+                            <span id="lastActive" class="text-sm text-gray-900">
+                                <%= device.lastActive ? new Date(device.lastActive).toLocaleString() : 'Never' %>
+                            </span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Created</span>
+                            <span class="text-sm text-gray-900">
+                                <%= new Date(device.createdAt).toLocaleDateString() %>
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stream Info -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Stream Information</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Viewers</span>
+                            <span id="streamViewers" class="text-sm text-gray-900">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Quality</span>
+                            <span class="text-sm text-gray-900">Auto</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Format</span>
+                            <span class="text-sm text-gray-900">MJPEG</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Embed Code -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-medium text-gray-900 mb-4">Embed Code</h3>
+                    <div class="space-y-3">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">HTML Embed</label>
+                            <textarea
+                                readonly
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-sm font-mono"
+                                rows="3"
+                                onclick="this.select()"
+                            ><img src="<%= serverAddress %>/api/view/<%= device.id %>?key=<%= device.viewerApiKey %>" alt="<%= device.name %> Stream" style="width: 100%; height: auto;" /></textarea>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Direct URL</label>
+                            <div class="flex">
+                                <input
+                                    type="text"
+                                    value="<%= serverAddress %>/api/view/<%= device.id %>?key=<%= device.viewerApiKey %>"
+                                    readonly
+                                    class="flex-1 px-3 py-2 border border-gray-300 rounded-l-md bg-gray-50 text-sm font-mono"
+                                >
+                                <button
+                                    onclick="copyToClipboard(this.previousElementSibling.value, this)"
+                                    class="px-3 py-2 bg-gray-200 border border-l-0 border-gray-300 rounded-r-md hover:bg-gray-300 text-sm"
+                                >
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        let streamImage = document.getElementById('streamImage');
+        let loadingState = document.getElementById('loadingState');
+        let errorState = document.getElementById('errorState');
+        let statusRefreshInterval;
+
+        // Stream management
+        function onStreamLoad() {
+            streamImage.style.display = 'block';
+            loadingState.style.display = 'none';
+            errorState.style.display = 'none';
+            updateStreamStatus('streaming', 'Streaming');
+        }
+
+        function onStreamError() {
+            streamImage.style.display = 'none';
+            loadingState.style.display = 'none';
+            errorState.style.display = 'flex';
+            updateStreamStatus('offline', 'Offline');
+        }
+
+        function refreshStream() {
+            streamImage.style.display = 'none';
+            loadingState.style.display = 'flex';
+            errorState.style.display = 'none';
+            
+            // Add timestamp to prevent caching
+            const url = new URL(streamImage.src);
+            url.searchParams.set('t', Date.now());
+            streamImage.src = url.toString();
+        }
+
+        function updateStreamStatus(status, text) {
+            const statusElement = document.getElementById('streamStatus');
+            const statusText = document.getElementById('statusText');
+            
+            statusElement.className = `flex items-center text-sm ${
+                status === 'streaming' ? 'text-green-600' : 'text-gray-500'
+            }`;
+            statusText.textContent = text;
+        }
+
+        // Fullscreen functionality
+        function toggleFullscreen() {
+            const container = streamImage.parentElement;
+            
+            if (!document.fullscreenElement) {
+                container.requestFullscreen().catch(err => {
+                    console.error('Error attempting to enable fullscreen:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Screenshot functionality
+        function takeScreenshot() {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = streamImage.naturalWidth;
+            canvas.height = streamImage.naturalHeight;
+            
+            ctx.drawImage(streamImage, 0, 0);
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.download = `<%= device.name %>_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Copy to clipboard
+        function copyToClipboard(text, button) {
+            navigator.clipboard.writeText(text).then(() => {
+                const originalText = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-check"></i>';
+                button.classList.add('bg-green-500', 'text-white');
+                
+                setTimeout(() => {
+                    button.innerHTML = originalText;
+                    button.classList.remove('bg-green-500', 'text-white');
+                }, 2000);
+            }).catch(() => {
+                alert('Failed to copy to clipboard');
+            });
+        }
+
+        // Update device status
+        async function updateDeviceStatus() {
+            try {
+                const response = await fetch(`/api/devices/<%= device.id %>/status`);
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Update device status
+                    const deviceStatus = document.getElementById('deviceStatus');
+                    deviceStatus.innerHTML = `
+                        <i class="fas fa-circle text-xs mr-1"></i>
+                        ${data.stream ? 'Streaming' : 'Offline'}
+                    `;
+                    deviceStatus.className = `text-sm font-medium ${
+                        data.stream ? 'text-green-600' : 'text-gray-500'
+                    }`;
+                    
+                    // Update last active
+                    if (data.device.lastActive) {
+                        document.getElementById('lastActive').textContent = 
+                            new Date(data.device.lastActive).toLocaleString();
+                    }
+                    
+                    // Update viewer count
+                    const viewerCount = data.stream?.viewerCount || 0;
+                    document.getElementById('viewerCount').textContent = viewerCount;
+                    document.getElementById('streamViewers').textContent = viewerCount;
+                }
+            } catch (error) {
+                console.error('Failed to update device status:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Update status immediately and then every 5 seconds
+            updateDeviceStatus();
+            statusRefreshInterval = setInterval(updateDeviceStatus, 5000);
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (statusRefreshInterval) {
+                clearInterval(statusRefreshInterval);
+            }
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            } else if (e.key === 's' || e.key === 'S') {
+                takeScreenshot();
+            } else if (e.key === 'r' || e.key === 'R') {
+                refreshStream();
+            }
+        });
+    </script>
+</body>
+</html>

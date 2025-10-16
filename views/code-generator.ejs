@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= title %> - ESP32-CAM Streaming Provider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <a href="/docs" class="text-blue-600 hover:text-blue-800 mr-4">
+                        <i class="fas fa-arrow-left mr-1"></i>
+                        Back to Docs
+                    </a>
+                    <div class="flex-shrink-0">
+                    <h1 class="text-xl font-bold text-gray-900">
+                        <i class="fas fa-code text-green-500 mr-2"></i>
+                        ESP32 Code Generator
+                    </h1>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <div class="bg-white rounded-lg shadow p-8">
+            <!-- Header -->
+            <div class="text-center mb-8">
+                <h2 class="text-3xl font-bold text-gray-900 mb-4">
+                    Generate Custom ESP32-CAM Code
+                </h2>
+                <p class="text-gray-600 max-w-2xl mx-auto">
+                    Kustomisasi pengaturan ESP32-CAM sesuai kebutuhan Anda dan download kode ESP32 yang sudah dikonfigurasi.
+                    Semua pengaturan sudah dioptimasi untuk performa terbaik.
+                </p>
+            </div>
+
+            <!-- Configuration Form -->
+            <form id="configForm" method="POST" action="/docs/download">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Basic Settings -->
+                    <div class="space-y-6">
+                        <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-blue-900 mb-4">
+                                <i class="fas fa-wifi text-blue-600 mr-2"></i>
+                                Network & Server Settings
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">WiFi SSID</label>
+                                    <input type="text" name="wifiSSID" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Nama WiFi Anda">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">WiFi Password</label>
+                                    <input type="password" name="wifiPassword" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Password WiFi Anda">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Server URL</label>
+                                    <input type="url" name="serverURL" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           value="<%= serverAddress %>"
+                                           placeholder="http://your-server.com">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Device ID</label>
+                                    <input type="text" name="deviceId" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Dapatkan dari dashboard">
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Copy dari dashboard → device settings
+                                    </p>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Device API Key</label>
+                                    <input type="text" name="deviceApiKey" required
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                           placeholder="Dapatkan dari dashboard">
+                                    <p class="text-xs text-gray-500 mt-1">
+                                        <i class="fas fa-info-circle mr-1"></i>
+                                        Copy dari dashboard → device settings
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Settings -->
+                        <div class="bg-green-50 border border-green-200 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-green-900 mb-4">
+                                <i class="fas fa-camera text-green-600 mr-2"></i>
+                                Camera Settings
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Frame Rate (FPS)</label>
+                                    <select name="frameRate" id="frameRate" 
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                        <option value="1">1 FPS - Hemat bandwidth</option>
+                                        <option value="2">2 FPS - Monitoring normal</option>
+                                        <option value="5" selected>5 FPS - Seimbang (recommended)</option>
+                                        <option value="10">10 FPS - Smooth streaming</option>
+                                        <option value="15">15 FPS - Sangat smooth</option>
+                                        <option value="20">20 FPS - Maximum (butuh WiFi kuat)</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Resolution</label>
+                                    <select name="resolution" id="resolution"
+                                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-green-500 focus:border-green-500">
+                                        <option value="FRAMESIZE_QVGA">320x240 (QVGA) - Hemat bandwidth</option>
+                                        <option value="FRAMESIZE_HVGA">480x320 (HVGA) - Optimal realtime</option>
+                                        <option value="FRAMESIZE_VGA" selected>640x480 (VGA) - Standard</option>
+                                        <option value="FRAMESIZE_SVGA">800x600 (SVGA) - Kualitas tinggi</option>
+                                        <option value="FRAMESIZE_XGA">1024x768 (XGA) - Butuh PSRAM</option>
+                                        <option value="FRAMESIZE_HD">1280x720 (HD) - Butuh PSRAM</option>
+                                        <option value="FRAMESIZE_UXGA">1600x1200 (UXGA) - Maximum</option>
+                                    </select>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">JPEG Quality</label>
+                                    <input type="range" name="jpegQuality" id="jpegQuality" min="5" max="40" value="15"
+                                           class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>High Quality (5)</span>
+                                        <span id="qualityValue">15</span>
+                                        <span>Low Quality (40)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Settings -->
+                    <div class="space-y-6">
+                        <!-- Performance Settings -->
+                        <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-purple-900 mb-4">
+                                <i class="fas fa-tachometer-alt text-purple-600 mr-2"></i>
+                                Performance & Monitoring
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">LED Indicator</label>
+                                    <input type="checkbox" name="enableLED" value="true" checked
+                                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Debug Output</label>
+                                    <input type="checkbox" name="enableDebug" value="true" checked
+                                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Performance Stats</label>
+                                    <input type="checkbox" name="enableStats" value="true" checked
+                                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Auto Restart on Error</label>
+                                    <input type="checkbox" name="autoRestart" value="true" checked
+                                           class="h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded">
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Max Errors Before Restart</label>
+                                    <input type="number" name="maxErrors" value="20" min="5" max="100"
+                                           class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-purple-500 focus:border-purple-500">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Camera Sensor Settings -->
+                        <div class="bg-orange-50 border border-orange-200 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-orange-900 mb-4">
+                                <i class="fas fa-adjust text-orange-600 mr-2"></i>
+                                Camera Sensor Fine-Tuning
+                            </h3>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Brightness</label>
+                                    <input type="range" name="brightness" id="brightness" min="-2" max="2" value="0"
+                                           class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Dark (-2)</span>
+                                        <span id="brightnessValue">0</span>
+                                        <span>Bright (+2)</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Contrast</label>
+                                    <input type="range" name="contrast" id="contrast" min="-2" max="2" value="0"
+                                           class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Low (-2)</span>
+                                        <span id="contrastValue">0</span>
+                                        <span>High (+2)</span>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Saturation</label>
+                                    <input type="range" name="saturation" id="saturation" min="-2" max="2" value="0"
+                                           class="w-full">
+                                    <div class="flex justify-between text-xs text-gray-500 mt-1">
+                                        <span>Low (-2)</span>
+                                        <span id="saturationValue">0</span>
+                                        <span>High (+2)</span>
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Horizontal Mirror</label>
+                                    <input type="checkbox" name="hmirror" value="1"
+                                           class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <label class="text-sm font-medium text-gray-700">Vertical Flip</label>
+                                    <input type="checkbox" name="vflip" value="1"
+                                           class="h-4 w-4 text-orange-600 focus:ring-orange-500 border-gray-300 rounded">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Preset Configurations -->
+                        <div class="bg-gray-50 border border-gray-200 rounded-lg p-6">
+                            <h3 class="text-lg font-medium text-gray-900 mb-4">
+                                <i class="fas fa-magic text-gray-600 mr-2"></i>
+                                Quick Presets
+                            </h3>
+                            
+                            <div class="grid grid-cols-1 gap-3">
+                                <button type="button" onclick="applyPreset('monitoring')"
+                                        class="text-left p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50">
+                                    <div class="font-medium text-gray-900">Basic Monitoring</div>
+                                    <div class="text-sm text-gray-500">QVGA, 2 FPS, Quality 25</div>
+                                </button>
+                                
+                                <button type="button" onclick="applyPreset('streaming')"
+                                        class="text-left p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50">
+                                    <div class="font-medium text-gray-900">Live Streaming</div>
+                                    <div class="text-sm text-gray-500">VGA, 10 FPS, Quality 15</div>
+                                </button>
+                                
+                                <button type="button" onclick="applyPreset('quality')"
+                                        class="text-left p-3 bg-white border border-gray-200 rounded-md hover:bg-gray-50">
+                                    <div class="font-medium text-gray-900">High Quality</div>
+                                    <div class="text-sm text-gray-500">UXGA, 1 FPS, Quality 8</div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Generate Button -->
+                <div class="mt-8 text-center">
+                    <button type="submit" 
+                            class="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-8 py-4 rounded-lg text-lg font-medium inline-flex items-center shadow-lg">
+                        <i class="fas fa-download mr-3"></i>
+                        Generate & Download ESP32 Code
+                    </button>
+                    <p class="text-sm text-gray-500 mt-2">
+                        File akan didownload sebagai "esp32_cam_configured.ino"
+                    </p>
+                </div>
+            </form>
+        </div>
+    </main>
+
+    <script>
+        // Update slider values
+        document.getElementById('jpegQuality').addEventListener('input', function() {
+            document.getElementById('qualityValue').textContent = this.value;
+        });
+        
+        document.getElementById('brightness').addEventListener('input', function() {
+            document.getElementById('brightnessValue').textContent = this.value;
+        });
+        
+        document.getElementById('contrast').addEventListener('input', function() {
+            document.getElementById('contrastValue').textContent = this.value;
+        });
+        
+        document.getElementById('saturation').addEventListener('input', function() {
+            document.getElementById('saturationValue').textContent = this.value;
+        });
+
+        // Preset configurations
+        function applyPreset(preset) {
+            const form = document.getElementById('configForm');
+            
+            switch(preset) {
+                case 'monitoring':
+                    form.frameRate.value = '2';
+                    form.resolution.value = 'FRAMESIZE_QVGA';
+                    form.jpegQuality.value = '25';
+                    break;
+                case 'streaming':
+                    form.frameRate.value = '10';
+                    form.resolution.value = 'FRAMESIZE_VGA';
+                    form.jpegQuality.value = '15';
+                    break;
+                case 'quality':
+                    form.frameRate.value = '1';
+                    form.resolution.value = 'FRAMESIZE_UXGA';
+                    form.jpegQuality.value = '8';
+                    break;
+            }
+            
+            // Update quality display
+            document.getElementById('qualityValue').textContent = form.jpegQuality.value;
+            
+            // Show notification
+            showNotification(`Applied ${preset} preset configuration`, 'success');
+        }
+
+        // Show notification
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 z-50 p-4 rounded-md shadow-lg ${
+                type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
+                type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
+                'bg-blue-100 text-blue-800 border border-blue-200'
+            }`;
+            notification.innerHTML = `
+                <div class="flex items-center">
+                    <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'} mr-2"></i>
+                    <span>${message}</span>
+                </div>
+            `;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+
+        // Form validation
+        document.getElementById('configForm').addEventListener('submit', function(e) {
+            const requiredFields = ['wifiSSID', 'wifiPassword', 'serverURL', 'deviceId', 'deviceApiKey'];
+            let isValid = true;
+            
+            requiredFields.forEach(field => {
+                const input = this[field];
+                if (!input.value.trim()) {
+                    isValid = false;
+                    input.classList.add('border-red-500');
+                } else {
+                    input.classList.remove('border-red-500');
+                }
+            });
+            
+            if (!isValid) {
+                e.preventDefault();
+                showNotification('Please fill in all required fields', 'error');
+                return;
+            }
+            
+            // Show loading state
+            const button = this.querySelector('button[type="submit"]');
+            button.disabled = true;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin mr-3"></i>Generating Code...';
+        });
+    </script>
+</body>
+</html>
