@@ -59,6 +59,16 @@ const userService = {
     if (error && error.code !== 'PGRST116') {
       return null; // User not found
     }
+    
+    // Transform to match expected format
+    if (data) {
+      return {
+        ...data,
+        passwordHash: data.password_hash,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    }
     return data;
   },
 
@@ -73,6 +83,16 @@ const userService = {
       .single();
 
     if (error) return null;
+    
+    // Transform to match expected format
+    if (data) {
+      return {
+        ...data,
+        passwordHash: data.password_hash,
+        createdAt: data.created_at,
+        updatedAt: data.updated_at
+      };
+    }
     return data;
   },
 };
