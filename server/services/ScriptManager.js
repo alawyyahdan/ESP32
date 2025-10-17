@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const { execSync } = require('child_process');
 const fs = require('fs').promises;
 const path = require('path');
 const { EventEmitter } = require('events');
@@ -29,6 +30,32 @@ class ScriptManager extends EventEmitter {
     }
   }
 
+  async detectPythonExecutable() {
+    const pythonCommands = ['python3', 'python', 'py'];
+    
+    for (const cmd of pythonCommands) {
+      try {
+        // Try to execute python --version to check if it exists
+        const output = execSync(`${cmd} --version 2>&1`, { 
+          encoding: 'utf8',
+          timeout: 5000 
+        });
+        
+        // Check if it's Python 3.x
+        if (output.includes('Python 3.')) {
+          console.log(`✅ Found Python: ${cmd} (${output.trim()})`);
+          return cmd;
+        }
+      } catch (error) {
+        // Command not found or failed, try next one
+        continue;
+      }
+    }
+    
+    console.error('❌ No Python 3.x executable found. Tried:', pythonCommands.join(', '));
+    return null;
+  }
+
   async startScript(scriptId, scriptContent, config = {}) {
     try {
       // Check if script is already running
@@ -50,12 +77,23 @@ class ScriptManager extends EventEmitter {
         ...config.envVars
       };
 
+      // Detect Python executable
+      const pythonCmd = await this.detectPythonExecutable();
+      if (!pythonCmd) {
+        throw new Error('Python executable not found. Please install Python 3.x');
+      }
+
       // Start Python process
-      const pythonProcess = spawn('python3', [scriptPath], {
+      const pythonProcess = spawn(pythonCmd, [scriptPath], {
         env,
         cwd: this.scriptsDir,
         stdio: ['pipe', 'pipe', 'pipe']
       });
+
+      // Check if process started successfully
+      if (!pythonProcess.pid) {
+        throw new Error(`Failed to start Python process with command: ${pythonCmd}`);
+      }
 
       // Store process info
       const processInfo = {
@@ -231,11 +269,19 @@ class ScriptManager extends EventEmitter {
   // Method to validate Python script before execution
   async validateScript(scriptContent) {
     try {
+      const pythonCmd = await this.detectPythonExecutable();
+      if (!pythonCmd) {
+        return { 
+          valid: false, 
+          error: 'Python 3.x not found. Please install Python to validate scripts.' 
+        };
+      }
+
       const tempPath = path.join(this.scriptsDir, `temp_${Date.now()}.py`);
       await fs.writeFile(tempPath, scriptContent);
 
       return new Promise((resolve) => {
-        const pythonProcess = spawn('python3', ['-m', 'py_compile', tempPath], {
+        const pythonProcess = spawn(pythonCmd, ['-m', 'py_compile', tempPath], {
           stdio: ['pipe', 'pipe', 'pipe']
         });
 
@@ -260,6 +306,20 @@ class ScriptManager extends EventEmitter {
               error: errorOutput || 'Script compilation failed' 
             });
           }
+        });
+
+        pythonProcess.on('error', async (error) => {
+          // Clean up temp file
+          try {
+            await fs.unlink(tempPath);
+          } catch (cleanupError) {
+            // Ignore cleanup errors
+          }
+
+          resolve({ 
+            valid: false, 
+            error: `Python validation failed: ${error.message}` 
+          });
         });
       });
     } catch (error) {
