@@ -3,7 +3,7 @@ services:
     name: esp32-cam-streaming
     env: node
     plan: free
-    buildCommand: ./render-build.sh
+    buildCommand: npm install
     startCommand: npm start
     envVars:
       - key: NODE_ENV

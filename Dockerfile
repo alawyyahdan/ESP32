@@ -1,56 +1,48 @@
-# ESP32-CAM Streaming Provider with Python Support
-# Optimized for Render.com deployment
-
-FROM node:18-slim
-
-# Install system dependencies including Python
-RUN apt-get update && apt-get install -y \
-    python3 \
-    python3-pip \
-    python3-dev \
-    python3-venv \
-    build-essential \
-    libopencv-dev \
-    pkg-config \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Create symbolic link for python command
-RUN ln -s /usr/bin/python3 /usr/bin/python
+# Multi-stage build for ESP32-CAM Streaming Provider
+FROM node:18-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Copy Python requirements and install first (for better caching)
-COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
-
-# Copy Node.js package files and install
+# Copy package files
 COPY package*.json ./
+
+# Install dependencies
 RUN npm ci --only=production && npm cache clean --force
 
-# Copy application code
-COPY . .
+# Production stage
+FROM node:18-alpine AS production
 
-# Create necessary directories with proper permissions
-RUN mkdir -p server/scripts server/python-env logs uploads && \
-    chmod 755 server/scripts server/python-env
+# Install system dependencies
+RUN apk add --no-cache \
+    dumb-init \
+    && rm -rf /var/cache/apk/*
 
-# Verify installations
-RUN echo "🔍 Verifying installations..." && \
-    node --version && \
-    npm --version && \
-    python3 --version && \
-    pip3 --version && \
-    python3 -c "import cv2, numpy, requests; print('✅ Python packages verified')" && \
-    echo "✅ All installations verified"
+# Create app user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+# Set working directory
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder --chown=nodejs:nodejs /app/node_modules ./node_modules
+COPY --chown=nodejs:nodejs . .
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/uploads && chown nodejs:nodejs /app/logs /app/uploads
+
+# Switch to non-root user
+USER nodejs
 
 # Expose port
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
-# Start application
+# Start application with dumb-init
+ENTRYPOINT ["dumb-init", "--"]
 CMD ["npm", "start"]
+
