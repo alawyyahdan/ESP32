@@ -31,6 +31,33 @@ class ScriptManager extends EventEmitter {
   }
 
   async detectPythonExecutable() {
+    // Check for virtual environment first
+    const venvPaths = [
+      '/opt/venv/bin/python',
+      '/opt/venv/bin/python3',
+      './venv/bin/python',
+      './venv/bin/python3'
+    ];
+    
+    // Try virtual environment paths first
+    for (const venvPath of venvPaths) {
+      try {
+        const output = execSync(`${venvPath} --version 2>&1`, { 
+          encoding: 'utf8',
+          timeout: 5000 
+        });
+        
+        if (output.includes('Python 3.')) {
+          console.log(`✅ Found Python in virtual environment: ${venvPath} (${output.trim()})`);
+          return venvPath;
+        }
+      } catch (error) {
+        // Virtual environment not found, continue
+        continue;
+      }
+    }
+    
+    // Fallback to system Python
     const pythonCommands = ['python3', 'python', 'py'];
     
     for (const cmd of pythonCommands) {
@@ -52,7 +79,7 @@ class ScriptManager extends EventEmitter {
       }
     }
     
-    console.error('❌ No Python 3.x executable found. Tried:', pythonCommands.join(', '));
+    console.error('❌ No Python 3.x executable found. Tried virtual environments and system Python');
     return null;
   }
 

@@ -1,5 +1,5 @@
-# ESP32-CAM Streaming Provider with Python Support
-# Optimized for Render.com deployment
+# ESP32-CAM Streaming Provider with Python Virtual Environment
+# Alternative Dockerfile using virtual environment for Python packages
 
 FROM node:18-slim
 
@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     python3-dev \
     python3-venv \
+    python3-full \
     build-essential \
     libopencv-dev \
     pkg-config \
@@ -21,9 +22,16 @@ RUN ln -s /usr/bin/python3 /usr/bin/python
 # Set working directory
 WORKDIR /app
 
-# Copy Python requirements and install first (for better caching)
+# Create and activate virtual environment
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Upgrade pip in virtual environment
+RUN pip install --upgrade pip
+
+# Copy Python requirements and install in virtual environment
 COPY requirements.txt ./
-RUN pip3 install --no-cache-dir --break-system-packages -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy Node.js package files and install
 COPY package*.json ./
@@ -41,7 +49,7 @@ RUN echo "🔍 Verifying installations..." && \
     node --version && \
     npm --version && \
     python3 --version && \
-    pip3 --version && \
+    pip --version && \
     python3 -c "import cv2, numpy, requests; print('✅ Python packages verified')" && \
     echo "✅ All installations verified"
 
@@ -52,5 +60,5 @@ EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:3000/api/health || exit 1
 
-# Start application
+# Start application with virtual environment activated
 CMD ["npm", "start"]

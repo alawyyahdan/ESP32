@@ -61,6 +61,8 @@ python3 -m pip install --upgrade pip
 # Step 6: Install Python packages
 print_status "Installing Python packages..."
 if [ -f "requirements.txt" ]; then
+    # Try with --break-system-packages for newer Python versions
+    pip3 install --no-cache-dir --break-system-packages -r requirements.txt || \
     pip3 install --no-cache-dir -r requirements.txt
     print_success "Python packages installed from requirements.txt"
 else
