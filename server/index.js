@@ -14,6 +14,8 @@ const authRoutes = require('./routes/auth');
 const dashboardRoutes = require('./routes/dashboard');
 const apiRoutes = require('./routes/api');
 const docsRoutes = require('./routes/docs');
+const scriptsRoutes = require('./routes/scripts');
+const analyticsRoutes = require('./routes/analytics');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -63,6 +65,8 @@ app.use('/', authRoutes);
 app.use('/', dashboardRoutes);
 app.use('/', docsRoutes);
 app.use('/api', apiLimiter, apiRoutes);
+app.use('/api', scriptsRoutes);
+app.use('/', analyticsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

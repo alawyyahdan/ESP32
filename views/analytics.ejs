@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics - ESP32-CAM Streaming Provider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-video text-blue-500 mr-2"></i>
+                            ESP32-CAM Provider
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-tachometer-alt mr-1"></i>
+                        Dashboard
+                    </a>
+                    <a href="/scripts" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-code mr-1"></i>
+                        Scripts
+                    </a>
+                    <a href="/analytics" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <i class="fas fa-chart-bar mr-1"></i>
+                        Analytics
+                    </a>
+                    <a href="/docs" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-book mr-1"></i>
+                        Docs
+                    </a>
+                    <span class="text-sm text-gray-700">
+                        <i class="fas fa-user mr-1"></i>
+                        <%= user.email %>
+                    </span>
+                    <form method="POST" action="/logout" class="inline">
+                        <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm">
+                            <i class="fas fa-sign-out-alt mr-1"></i>
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Alerts -->
+        <% if (success) { %>
+        <div class="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <%= success %>
+            </div>
+        </div>
+        <% } %>
+
+        <% if (error) { %>
+        <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <%= error %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Analytics Dashboard</h1>
+            <p class="mt-2 text-gray-600">Monitor detection results and performance from your custom scripts</p>
+        </div>
+
+        <!-- Time Range Selector -->
+        <div class="mb-6">
+            <div class="flex items-center space-x-4">
+                <label class="text-sm font-medium text-gray-700">Time Range:</label>
+                <select id="timeRangeSelector" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="1h">Last Hour</option>
+                    <option value="24h" selected>Last 24 Hours</option>
+                    <option value="7d">Last 7 Days</option>
+                    <option value="30d">Last 30 Days</option>
+                </select>
+                <select id="deviceSelector" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">All Devices</option>
+                    <% devices.forEach(device => { %>
+                    <option value="<%= device.id %>"><%= device.name %></option>
+                    <% }) %>
+                </select>
+                <button onclick="refreshData()" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    <i class="fas fa-sync-alt mr-2"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+
+        <!-- Overview Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <i class="fas fa-eye text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Detections</p>
+                        <p id="totalDetections" class="text-2xl font-bold text-gray-900">
+                            <%= devices.reduce((sum, d) => sum + d.analytics.total, 0) %>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <i class="fas fa-chart-line text-green-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Detection Events</p>
+                        <p id="totalEvents" class="text-2xl font-bold text-gray-900">
+                            <%= devices.reduce((sum, d) => sum + d.analytics.events, 0) %>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <i class="fas fa-camera text-purple-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Active Devices</p>
+                        <p id="activeDevices" class="text-2xl font-bold text-gray-900"><%= devices.length %></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-yellow-100 rounded-lg">
+                        <i class="fas fa-tags text-yellow-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Detection Types</p>
+                        <p id="detectionTypes" class="text-2xl font-bold text-gray-900">
+                            <%= [...new Set(devices.flatMap(d => d.analytics.detectionTypes))].length %>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Charts Section -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            <!-- Detection Timeline Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Detection Timeline</h3>
+                <div class="relative" style="height: 300px;">
+                    <canvas id="timelineChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Detection Types Chart -->
+            <div class="bg-white rounded-lg shadow p-6">
+                <h3 class="text-lg font-medium text-gray-900 mb-4">Detection Types Distribution</h3>
+                <div class="relative" style="height: 300px;">
+                    <canvas id="typesChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Device Analytics -->
+        <div class="bg-white shadow rounded-lg mb-8">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Device Analytics</h2>
+            </div>
+
+            <% if (devices.length === 0) { %>
+            <div class="p-8 text-center">
+                <i class="fas fa-chart-bar text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No analytics data</h3>
+                <p class="text-gray-600 mb-4">Create and run some detection scripts to see analytics</p>
+                <a href="/scripts" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium">
+                    <i class="fas fa-code mr-2"></i>
+                    Create Scripts
+                </a>
+            </div>
+            <% } else { %>
+            <div class="divide-y divide-gray-200">
+                <% devices.forEach(device => { %>
+                <div class="p-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="p-2 bg-gray-100 rounded-lg">
+                                <i class="fas fa-camera text-gray-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900"><%= device.name %></h3>
+                                <p class="text-sm text-gray-500">Device ID: <%= device.id %></p>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-4">
+                            <button
+                                onclick="viewDeviceDetails('<%= device.id %>')"
+                                class="text-blue-600 hover:text-blue-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-chart-line mr-1"></i>
+                                View Details
+                            </button>
+                            <button
+                                onclick="exportDeviceData('<%= device.id %>')"
+                                class="text-green-600 hover:text-green-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-download mr-1"></i>
+                                Export
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Total Detections</p>
+                                    <p class="text-xl font-bold text-gray-900"><%= device.analytics.total %></p>
+                                </div>
+                                <i class="fas fa-eye text-blue-500 text-2xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Detection Events</p>
+                                    <p class="text-xl font-bold text-gray-900"><%= device.analytics.events %></p>
+                                </div>
+                                <i class="fas fa-chart-line text-green-500 text-2xl"></i>
+                            </div>
+                        </div>
+
+                        <div class="bg-gray-50 rounded-lg p-4">
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <p class="text-sm font-medium text-gray-600">Detection Types</p>
+                                    <p class="text-xl font-bold text-gray-900"><%= device.analytics.detectionTypes.length %></p>
+                                </div>
+                                <i class="fas fa-tags text-purple-500 text-2xl"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <% if (device.analytics.detectionTypes.length > 0) { %>
+                    <div class="mt-4">
+                        <p class="text-sm font-medium text-gray-600 mb-2">Active Detection Types:</p>
+                        <div class="flex flex-wrap gap-2">
+                            <% device.analytics.detectionTypes.forEach(type => { %>
+                            <span class="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                                <%= type %>
+                            </span>
+                            <% }) %>
+                        </div>
+                    </div>
+                    <% } %>
+                </div>
+                <% }) %>
+            </div>
+            <% } %>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Recent Detection Activity</h2>
+            </div>
+            <div id="recentActivity" class="divide-y divide-gray-200">
+                <!-- Activity will be loaded here -->
+            </div>
+        </div>
+    </main>
+
+    <!-- Device Details Modal -->
+    <div id="deviceDetailsModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 id="deviceDetailsTitle" class="text-lg font-medium text-gray-900">Device Analytics</h3>
+                    <button onclick="hideDeviceDetailsModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                
+                <!-- Device Details Content -->
+                <div id="deviceDetailsContent">
+                    <!-- Content will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let timelineChart = null;
+        let typesChart = null;
+        let currentTimeRange = '24h';
+        let currentDevice = '';
+
+        // Initialize charts
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            loadRecentActivity();
+            
+            // Event listeners
+            document.getElementById('timeRangeSelector').addEventListener('change', function() {
+                currentTimeRange = this.value;
+                refreshData();
+            });
+            
+            document.getElementById('deviceSelector').addEventListener('change', function() {
+                currentDevice = this.value;
+                refreshData();
+            });
+        });
+
+        function initializeCharts() {
+            // Timeline Chart
+            const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+            timelineChart = new Chart(timelineCtx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: 'Detections',
+                        data: [],
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Types Chart
+            const typesCtx = document.getElementById('typesChart').getContext('2d');
+            typesChart = new Chart(typesCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        data: [],
+                        backgroundColor: [
+                            '#3B82F6',
+                            '#10B981',
+                            '#F59E0B',
+                            '#EF4444',
+                            '#8B5CF6',
+                            '#06B6D4'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        }
+                    }
+                }
+            });
+        }
+
+        async function refreshData() {
+            try {
+                // Show loading state
+                document.getElementById('totalDetections').textContent = 'Loading...';
+                document.getElementById('totalEvents').textContent = 'Loading...';
+                
+                // Fetch analytics data
+                const url = currentDevice 
+                    ? `/analytics/${currentDevice}?timeRange=${currentTimeRange}`
+                    : `/analytics?timeRange=${currentTimeRange}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateOverviewStats(data);
+                    updateCharts(data);
+                    loadRecentActivity();
+                } else {
+                    console.error('Failed to fetch analytics:', data.error);
+                }
+            } catch (error) {
+                console.error('Error refreshing data:', error);
+            }
+        }
+
+        function updateOverviewStats(data) {
+            if (currentDevice) {
+                // Single device data
+                document.getElementById('totalDetections').textContent = data.totals.total;
+                document.getElementById('totalEvents').textContent = data.totals.count;
+                document.getElementById('activeDevices').textContent = '1';
+                document.getElementById('detectionTypes').textContent = data.detectionTypes.length;
+            } else {
+                // All devices data
+                const totalDetections = data.devices.reduce((sum, d) => sum + d.totals.total, 0);
+                const totalEvents = data.devices.reduce((sum, d) => sum + d.totals.count, 0);
+                
+                document.getElementById('totalDetections').textContent = totalDetections;
+                document.getElementById('totalEvents').textContent = totalEvents;
+                document.getElementById('activeDevices').textContent = data.devices.length;
+                document.getElementById('detectionTypes').textContent = data.detectionTypes.length;
+            }
+        }
+
+        async function updateCharts(data) {
+            try {
+                // Get chart data
+                const chartUrl = currentDevice 
+                    ? `/analytics/${currentDevice}/chart?timeRange=${currentTimeRange}`
+                    : `/analytics/chart?timeRange=${currentTimeRange}`;
+                
+                const chartResponse = await fetch(chartUrl);
+                const chartData = await chartResponse.json();
+                
+                if (chartData.success) {
+                    // Update timeline chart
+                    const timelineData = chartData.chartData || [];
+                    timelineChart.data.labels = timelineData.map(item => 
+                        new Date(item.timestamp).toLocaleTimeString()
+                    );
+                    timelineChart.data.datasets[0].data = timelineData.map(item => item.detections);
+                    timelineChart.update();
+                    
+                    // Update types chart
+                    const typesData = {};
+                    timelineData.forEach(item => {
+                        typesData[item.detectionType] = (typesData[item.detectionType] || 0) + item.detections;
+                    });
+                    
+                    typesChart.data.labels = Object.keys(typesData);
+                    typesChart.data.datasets[0].data = Object.values(typesData);
+                    typesChart.update();
+                }
+            } catch (error) {
+                console.error('Error updating charts:', error);
+            }
+        }
+
+        async function loadRecentActivity() {
+            try {
+                const url = currentDevice 
+                    ? `/analytics/${currentDevice}?timeRange=1h`
+                    : `/analytics?timeRange=1h`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    const activityContainer = document.getElementById('recentActivity');
+                    
+                    let activities = [];
+                    if (currentDevice) {
+                        activities = data.data.slice(0, 10); // Latest 10 activities
+                    } else {
+                        // Combine activities from all devices
+                        data.devices.forEach(device => {
+                            device.analytics.forEach(activity => {
+                                activities.push({
+                                    ...activity,
+                                    deviceName: device.device.name
+                                });
+                            });
+                        });
+                        activities.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+                        activities = activities.slice(0, 10);
+                    }
+                    
+                    if (activities.length === 0) {
+                        activityContainer.innerHTML = `
+                            <div class="p-8 text-center">
+                                <i class="fas fa-clock text-gray-400 text-2xl mb-2"></i>
+                                <p class="text-gray-600">No recent activity</p>
+                            </div>
+                        `;
+                    } else {
+                        activityContainer.innerHTML = activities.map(activity => `
+                            <div class="p-4">
+                                <div class="flex items-center justify-between">
+                                    <div class="flex items-center space-x-3">
+                                        <div class="p-2 bg-blue-100 rounded-lg">
+                                            <i class="fas fa-eye text-blue-600"></i>
+                                        </div>
+                                        <div>
+                                            <p class="text-sm font-medium text-gray-900">
+                                                ${activity.detectedCount} ${activity.detectionType} detected
+                                            </p>
+                                            <p class="text-xs text-gray-500">
+                                                ${activity.deviceName || 'Unknown Device'} • 
+                                                ${new Date(activity.timestamp).toLocaleString()}
+                                            </p>
+                                        </div>
+                                    </div>
+                                    ${activity.confidence ? `
+                                        <span class="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                                            ${Math.round(activity.confidence * 100)}% confidence
+                                        </span>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `).join('');
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading recent activity:', error);
+            }
+        }
+
+        async function viewDeviceDetails(deviceId) {
+            try {
+                const response = await fetch(`/analytics/${deviceId}?timeRange=${currentTimeRange}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    document.getElementById('deviceDetailsTitle').textContent = `${data.device.name} Analytics`;
+                    
+                    // Create detailed content
+                    const content = `
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="bg-blue-50 rounded-lg p-4">
+                                <h4 class="font-medium text-blue-900">Total Detections</h4>
+                                <p class="text-2xl font-bold text-blue-600">${data.totals.total}</p>
+                            </div>
+                            <div class="bg-green-50 rounded-lg p-4">
+                                <h4 class="font-medium text-green-900">Detection Events</h4>
+                                <p class="text-2xl font-bold text-green-600">${data.totals.count}</p>
+                            </div>
+                            <div class="bg-purple-50 rounded-lg p-4">
+                                <h4 class="font-medium text-purple-900">Detection Types</h4>
+                                <p class="text-2xl font-bold text-purple-600">${data.detectionTypes.length}</p>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-6">
+                            <h4 class="font-medium text-gray-900 mb-3">Recent Detections</h4>
+                            <div class="max-h-64 overflow-y-auto">
+                                ${data.data.slice(0, 20).map(item => `
+                                    <div class="flex items-center justify-between py-2 border-b border-gray-100">
+                                        <div>
+                                            <span class="font-medium">${item.detectedCount} ${item.detectionType}</span>
+                                            <span class="text-sm text-gray-500 ml-2">
+                                                ${new Date(item.timestamp).toLocaleString()}
+                                            </span>
+                                        </div>
+                                        ${item.confidence ? `
+                                            <span class="px-2 py-1 bg-gray-100 text-gray-800 text-xs rounded">
+                                                ${Math.round(item.confidence * 100)}%
+                                            </span>
+                                        ` : ''}
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('deviceDetailsContent').innerHTML = content;
+                    document.getElementById('deviceDetailsModal').classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error loading device details:', error);
+                alert('Failed to load device details');
+            }
+        }
+
+        function hideDeviceDetailsModal() {
+            document.getElementById('deviceDetailsModal').classList.add('hidden');
+        }
+
+        async function exportDeviceData(deviceId) {
+            try {
+                const response = await fetch(`/analytics/${deviceId}?timeRange=30d`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Convert to CSV
+                    const csvContent = [
+                        ['Timestamp', 'Detection Type', 'Count', 'Confidence', 'Script Name'].join(','),
+                        ...data.data.map(item => [
+                            item.timestamp,
+                            item.detectionType,
+                            item.detectedCount,
+                            item.confidence || '',
+                            item.scriptName || ''
+                        ].join(','))
+                    ].join('\\n');
+                    
+                    // Download CSV
+                    const blob = new Blob([csvContent], { type: 'text/csv' });
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `${data.device.name}_analytics_${new Date().toISOString().split('T')[0]}.csv`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                }
+            } catch (error) {
+                console.error('Error exporting data:', error);
+                alert('Failed to export data');
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            refreshData();
+        }, 30000);
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideDeviceDetailsModal();
+            }
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,747 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Custom Scripts - ESP32-CAM Streaming Provider</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs/loader.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between h-16">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <h1 class="text-xl font-bold text-gray-900">
+                            <i class="fas fa-video text-blue-500 mr-2"></i>
+                            ESP32-CAM Provider
+                        </h1>
+                    </div>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-tachometer-alt mr-1"></i>
+                        Dashboard
+                    </a>
+                    <a href="/scripts" class="text-blue-600 hover:text-blue-800 text-sm font-medium">
+                        <i class="fas fa-code mr-1"></i>
+                        Scripts
+                    </a>
+                    <a href="/analytics" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-chart-bar mr-1"></i>
+                        Analytics
+                    </a>
+                    <a href="/docs" class="text-gray-600 hover:text-gray-800 text-sm font-medium">
+                        <i class="fas fa-book mr-1"></i>
+                        Docs
+                    </a>
+                    <span class="text-sm text-gray-700">
+                        <i class="fas fa-user mr-1"></i>
+                        <%= user.email %>
+                    </span>
+                    <form method="POST" action="/logout" class="inline">
+                        <button type="submit" class="text-gray-500 hover:text-gray-700 text-sm">
+                            <i class="fas fa-sign-out-alt mr-1"></i>
+                            Logout
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+        <!-- Alerts -->
+        <% if (success) { %>
+        <div class="mb-6 p-4 bg-green-100 border border-green-400 text-green-700 rounded-md">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle mr-2"></i>
+                <%= success %>
+            </div>
+        </div>
+        <% } %>
+
+        <% if (error) { %>
+        <div class="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded-md">
+            <div class="flex items-center">
+                <i class="fas fa-exclamation-circle mr-2"></i>
+                <%= error %>
+            </div>
+        </div>
+        <% } %>
+
+        <!-- Header -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold text-gray-900">Custom Scripts</h1>
+            <p class="mt-2 text-gray-600">Create and manage Python detection scripts for your ESP32-CAM devices</p>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-blue-100 rounded-lg">
+                        <i class="fas fa-code text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Total Scripts</p>
+                        <p class="text-2xl font-bold text-gray-900"><%= scripts.length %></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-green-100 rounded-lg">
+                        <i class="fas fa-play text-green-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Running Scripts</p>
+                        <p class="text-2xl font-bold text-gray-900">
+                            <%= scripts.filter(s => s.isRunning).length %>
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-lg shadow p-6">
+                <div class="flex items-center">
+                    <div class="p-2 bg-purple-100 rounded-lg">
+                        <i class="fas fa-camera text-purple-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <p class="text-sm font-medium text-gray-600">Active Devices</p>
+                        <p class="text-2xl font-bold text-gray-900"><%= devices.length %></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add Script Button -->
+        <div class="mb-6">
+            <button
+                onclick="showCreateScriptModal()"
+                class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium transition duration-150 ease-in-out"
+            >
+                <i class="fas fa-plus mr-2"></i>
+                Create New Script
+            </button>
+        </div>
+
+        <!-- Scripts List -->
+        <div class="bg-white shadow rounded-lg">
+            <div class="px-6 py-4 border-b border-gray-200">
+                <h2 class="text-lg font-medium text-gray-900">Your Scripts</h2>
+            </div>
+
+            <% if (scripts.length === 0) { %>
+            <div class="p-8 text-center">
+                <i class="fas fa-code text-gray-400 text-4xl mb-4"></i>
+                <h3 class="text-lg font-medium text-gray-900 mb-2">No scripts yet</h3>
+                <p class="text-gray-600 mb-4">Create your first detection script to get started</p>
+                <button
+                    onclick="showCreateScriptModal()"
+                    class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md font-medium"
+                >
+                    <i class="fas fa-plus mr-2"></i>
+                    Create Script
+                </button>
+            </div>
+            <% } else { %>
+            <div class="divide-y divide-gray-200">
+                <% scripts.forEach(script => { %>
+                <div class="p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-4">
+                            <div class="p-2 bg-gray-100 rounded-lg">
+                                <i class="fas fa-<%= script.scriptType === 'python' ? 'python' : 'code' %> text-gray-600 text-xl"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-medium text-gray-900"><%= script.name %></h3>
+                                <div class="flex items-center space-x-4 mt-1">
+                                    <span class="flex items-center text-sm <%= script.isRunning ? 'text-green-600' : 'text-gray-500' %>">
+                                        <i class="fas fa-circle text-xs mr-1"></i>
+                                        <%= script.isRunning ? 'Running' : 'Stopped' %>
+                                    </span>
+                                    <span class="text-sm text-gray-500">
+                                        Device: <%= script.deviceName || 'Unknown' %>
+                                    </span>
+                                    <span class="text-sm text-gray-500">
+                                        Type: <%= script.scriptType %>
+                                    </span>
+                                    <% if (script.runtimeInfo) { %>
+                                    <span class="text-sm text-blue-600">
+                                        <i class="fas fa-clock mr-1"></i>
+                                        Uptime: <%= Math.floor(script.runtimeInfo.uptime / 1000 / 60) %>m
+                                    </span>
+                                    <% } %>
+                                </div>
+                                <% if (script.description) { %>
+                                <p class="text-sm text-gray-600 mt-1"><%= script.description %></p>
+                                <% } %>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <% if (script.isRunning) { %>
+                            <button
+                                onclick="stopScript('<%= script.id %>')"
+                                class="text-red-600 hover:text-red-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-stop mr-1"></i>
+                                Stop
+                            </button>
+                            <button
+                                onclick="restartScript('<%= script.id %>')"
+                                class="text-yellow-600 hover:text-yellow-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-redo mr-1"></i>
+                                Restart
+                            </button>
+                            <% } else { %>
+                            <button
+                                onclick="startScript('<%= script.id %>')"
+                                class="text-green-600 hover:text-green-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-play mr-1"></i>
+                                Start
+                            </button>
+                            <% } %>
+                            <button
+                                onclick="editScript('<%= script.id %>')"
+                                class="text-blue-600 hover:text-blue-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-edit mr-1"></i>
+                                Edit
+                            </button>
+                            <button
+                                onclick="deleteScript('<%= script.id %>')"
+                                class="text-red-600 hover:text-red-800 px-3 py-1 text-sm font-medium"
+                            >
+                                <i class="fas fa-trash mr-1"></i>
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <% }) %>
+            </div>
+            <% } %>
+        </div>
+    </main>
+
+    <!-- Create/Edit Script Modal -->
+    <div id="scriptModal" class="hidden fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+        <div class="relative top-10 mx-auto p-5 border w-11/12 max-w-6xl shadow-lg rounded-md bg-white">
+            <div class="mt-3">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 id="modalTitle" class="text-lg font-medium text-gray-900">Create New Script</h3>
+                    <button onclick="hideScriptModal()" class="text-gray-400 hover:text-gray-600">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <form id="scriptForm">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="scriptName" class="block text-sm font-medium text-gray-700 mb-2">
+                                Script Name
+                            </label>
+                            <input
+                                type="text"
+                                id="scriptName"
+                                name="name"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                                placeholder="e.g., Face Detection Script"
+                            >
+                        </div>
+                        <div>
+                            <label for="scriptDevice" class="block text-sm font-medium text-gray-700 mb-2">
+                                Target Device
+                            </label>
+                            <select
+                                id="scriptDevice"
+                                name="deviceId"
+                                required
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            >
+                                <option value="">Select Device</option>
+                                <% devices.forEach(device => { %>
+                                <option value="<%= device.id %>"><%= device.name %></option>
+                                <% }) %>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label for="scriptDescription" class="block text-sm font-medium text-gray-700 mb-2">
+                            Description (Optional)
+                        </label>
+                        <textarea
+                            id="scriptDescription"
+                            name="description"
+                            rows="2"
+                            class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+                            placeholder="Describe what this script does..."
+                        ></textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Python Script
+                        </label>
+                        <div class="border border-gray-300 rounded-md" style="height: 400px;">
+                            <div id="codeEditor" style="height: 100%;"></div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">
+                            Write your Python detection script. Use the example templates below for reference.
+                        </p>
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <div class="flex space-x-2">
+                            <button
+                                type="button"
+                                onclick="loadTemplate('face_detection')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                            >
+                                Face Detection Template
+                            </button>
+                            <button
+                                type="button"
+                                onclick="loadTemplate('motion_detection')"
+                                class="px-3 py-1 bg-gray-200 text-gray-700 rounded text-sm hover:bg-gray-300"
+                            >
+                                Motion Detection Template
+                            </button>
+                            <button
+                                type="button"
+                                onclick="validateScript()"
+                                class="px-3 py-1 bg-yellow-500 text-white rounded text-sm hover:bg-yellow-600"
+                            >
+                                <i class="fas fa-check mr-1"></i>
+                                Validate
+                            </button>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button
+                                type="button"
+                                onclick="hideScriptModal()"
+                                class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="submit"
+                                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                            >
+                                <span id="submitButtonText">Create Script</span>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let editor;
+        let currentScriptId = null;
+
+        // Initialize Monaco Editor
+        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.44.0/min/vs' }});
+        require(['vs/editor/editor.main'], function() {
+            editor = monaco.editor.create(document.getElementById('codeEditor'), {
+                value: '# Your Python detection script here\nimport cv2\nimport requests\nimport os\n\n# Script configuration\nSCRIPT_ID = os.getenv("SCRIPT_ID")\nSERVER_URL = os.getenv("SERVER_URL")\nDEVICE_ID = os.getenv("DEVICE_ID")\nUSER_ID = os.getenv("USER_ID")\n\n# Your detection logic here\nprint("Script started successfully!")',
+                language: 'python',
+                theme: 'vs-dark',
+                automaticLayout: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false
+            });
+        });
+
+        // Modal functions
+        function showCreateScriptModal() {
+            currentScriptId = null;
+            document.getElementById('modalTitle').textContent = 'Create New Script';
+            document.getElementById('submitButtonText').textContent = 'Create Script';
+            document.getElementById('scriptForm').reset();
+            if (editor) {
+                editor.setValue('# Your Python detection script here\nimport cv2\nimport requests\nimport os\n\n# Script configuration\nSCRIPT_ID = os.getenv("SCRIPT_ID")\nSERVER_URL = os.getenv("SERVER_URL")\nDEVICE_ID = os.getenv("DEVICE_ID")\nUSER_ID = os.getenv("USER_ID")\n\n# Your detection logic here\nprint("Script started successfully!")');
+            }
+            document.getElementById('scriptModal').classList.remove('hidden');
+        }
+
+        function hideScriptModal() {
+            document.getElementById('scriptModal').classList.add('hidden');
+            currentScriptId = null;
+        }
+
+        // Script management functions
+        async function startScript(scriptId) {
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}/start`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to start script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to start script. Please try again.');
+            }
+        }
+
+        async function stopScript(scriptId) {
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}/stop`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to stop script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to stop script. Please try again.');
+            }
+        }
+
+        async function restartScript(scriptId) {
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}/restart`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to restart script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to restart script. Please try again.');
+            }
+        }
+
+        async function editScript(scriptId) {
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentScriptId = scriptId;
+                    document.getElementById('modalTitle').textContent = 'Edit Script';
+                    document.getElementById('submitButtonText').textContent = 'Update Script';
+                    
+                    document.getElementById('scriptName').value = result.script.name;
+                    document.getElementById('scriptDevice').value = result.script.deviceId;
+                    document.getElementById('scriptDescription').value = result.script.description || '';
+                    
+                    if (editor) {
+                        editor.setValue(result.script.scriptContent);
+                    }
+                    
+                    document.getElementById('scriptModal').classList.remove('hidden');
+                } else {
+                    alert(`Failed to load script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to load script. Please try again.');
+            }
+        }
+
+        async function deleteScript(scriptId) {
+            if (!confirm('Are you sure you want to delete this script? This action cannot be undone.')) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/scripts/${scriptId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to delete script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to delete script. Please try again.');
+            }
+        }
+
+        // Form submission
+        document.getElementById('scriptForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const scriptData = {
+                name: formData.get('name'),
+                deviceId: formData.get('deviceId'),
+                description: formData.get('description'),
+                scriptContent: editor ? editor.getValue() : '',
+                scriptType: 'python'
+            };
+
+            try {
+                const url = currentScriptId ? `/api/scripts/${currentScriptId}` : '/api/scripts';
+                const method = currentScriptId ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(scriptData)
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    location.reload();
+                } else {
+                    alert(`Failed to save script: ${result.error}`);
+                }
+            } catch (error) {
+                alert('Failed to save script. Please try again.');
+            }
+        });
+
+        // Template loading
+        function loadTemplate(templateType) {
+            let template = '';
+            
+            if (templateType === 'face_detection') {
+                template = `# Face Detection Script
+import cv2
+import requests
+import os
+import time
+import numpy as np
+from urllib.request import urlopen
+
+# Script configuration
+SCRIPT_ID = os.getenv("SCRIPT_ID")
+SERVER_URL = os.getenv("SERVER_URL")
+DEVICE_ID = os.getenv("DEVICE_ID")
+USER_ID = os.getenv("USER_ID")
+
+# Load face detection classifier
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+
+def log_detection(count, confidence=None):
+    """Log detection results to analytics"""
+    try:
+        data = {
+            'userId': USER_ID,
+            'deviceId': DEVICE_ID,
+            'scriptId': SCRIPT_ID,
+            'detectionType': 'face',
+            'detectedCount': count,
+            'confidence': confidence,
+            'metadata': {'timestamp': time.time()}
+        }
+        
+        response = requests.post(f"{SERVER_URL}/analytics/log", json=data, timeout=5)
+        if response.status_code == 200:
+            print(f"Logged {count} faces detected")
+        else:
+            print(f"Failed to log detection: {response.status_code}")
+    except Exception as e:
+        print(f"Error logging detection: {e}")
+
+def detect_faces_from_stream():
+    """Detect faces from ESP32-CAM stream"""
+    stream_url = f"{SERVER_URL}/api/view/{DEVICE_ID}?key=YOUR_VIEWER_API_KEY"
+    
+    while True:
+        try:
+            # Get frame from stream
+            stream = urlopen(stream_url, timeout=10)
+            bytes_data = bytes()
+            
+            while True:
+                bytes_data += stream.read(1024)
+                a = bytes_data.find(b'\\xff\\xd8')  # JPEG start
+                b = bytes_data.find(b'\\xff\\xd9')  # JPEG end
+                
+                if a != -1 and b != -1:
+                    jpg = bytes_data[a:b+2]
+                    bytes_data = bytes_data[b+2:]
+                    
+                    # Decode image
+                    img = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    
+                    if img is not None:
+                        # Convert to grayscale for face detection
+                        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                        
+                        # Detect faces
+                        faces = face_cascade.detectMultiScale(gray, 1.1, 4)
+                        face_count = len(faces)
+                        
+                        if face_count > 0:
+                            print(f"Detected {face_count} face(s)")
+                            log_detection(face_count, 0.8)
+                        
+                        # Wait before next detection
+                        time.sleep(2)
+                        
+        except Exception as e:
+            print(f"Stream error: {e}")
+            time.sleep(5)  # Wait before retrying
+
+if __name__ == "__main__":
+    print("Face detection script started")
+    detect_faces_from_stream()`;
+            } else if (templateType === 'motion_detection') {
+                template = `# Motion Detection Script
+import cv2
+import requests
+import os
+import time
+import numpy as np
+from urllib.request import urlopen
+
+# Script configuration
+SCRIPT_ID = os.getenv("SCRIPT_ID")
+SERVER_URL = os.getenv("SERVER_URL")
+DEVICE_ID = os.getenv("DEVICE_ID")
+USER_ID = os.getenv("USER_ID")
+
+# Motion detection parameters
+MOTION_THRESHOLD = 5000
+previous_frame = None
+
+def log_detection(motion_level):
+    """Log motion detection to analytics"""
+    try:
+        data = {
+            'userId': USER_ID,
+            'deviceId': DEVICE_ID,
+            'scriptId': SCRIPT_ID,
+            'detectionType': 'motion',
+            'detectedCount': 1,
+            'confidence': min(motion_level / 50000, 1.0),
+            'metadata': {'motion_level': motion_level, 'timestamp': time.time()}
+        }
+        
+        response = requests.post(f"{SERVER_URL}/analytics/log", json=data, timeout=5)
+        if response.status_code == 200:
+            print(f"Motion detected (level: {motion_level})")
+        else:
+            print(f"Failed to log detection: {response.status_code}")
+    except Exception as e:
+        print(f"Error logging detection: {e}")
+
+def detect_motion_from_stream():
+    """Detect motion from ESP32-CAM stream"""
+    global previous_frame
+    stream_url = f"{SERVER_URL}/api/view/{DEVICE_ID}?key=YOUR_VIEWER_API_KEY"
+    
+    while True:
+        try:
+            # Get frame from stream
+            stream = urlopen(stream_url, timeout=10)
+            bytes_data = bytes()
+            
+            while True:
+                bytes_data += stream.read(1024)
+                a = bytes_data.find(b'\\xff\\xd8')  # JPEG start
+                b = bytes_data.find(b'\\xff\\xd9')  # JPEG end
+                
+                if a != -1 and b != -1:
+                    jpg = bytes_data[a:b+2]
+                    bytes_data = bytes_data[b+2:]
+                    
+                    # Decode image
+                    img = cv2.imdecode(np.frombuffer(jpg, dtype=np.uint8), cv2.IMREAD_COLOR)
+                    
+                    if img is not None:
+                        # Convert to grayscale
+                        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                        gray = cv2.GaussianBlur(gray, (21, 21), 0)
+                        
+                        if previous_frame is not None:
+                            # Calculate frame difference
+                            frame_delta = cv2.absdiff(previous_frame, gray)
+                            thresh = cv2.threshold(frame_delta, 25, 255, cv2.THRESH_BINARY)[1]
+                            thresh = cv2.dilate(thresh, None, iterations=2)
+                            
+                            # Find contours
+                            contours, _ = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+                            
+                            # Calculate motion level
+                            motion_level = sum(cv2.contourArea(c) for c in contours)
+                            
+                            if motion_level > MOTION_THRESHOLD:
+                                log_detection(motion_level)
+                        
+                        previous_frame = gray.copy()
+                        time.sleep(1)  # Check every second
+                        
+        except Exception as e:
+            print(f"Stream error: {e}")
+            time.sleep(5)  # Wait before retrying
+
+if __name__ == "__main__":
+    print("Motion detection script started")
+    detect_motion_from_stream()`;
+            }
+            
+            if (editor && template) {
+                editor.setValue(template);
+            }
+        }
+
+        // Script validation
+        async function validateScript() {
+            if (!editor) return;
+            
+            try {
+                const response = await fetch('/api/scripts/validate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        scriptContent: editor.getValue(),
+                        scriptType: 'python'
+                    })
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    if (result.valid) {
+                        alert('✅ Script validation passed!');
+                    } else {
+                        alert(`❌ Script validation failed:\\n${result.error}`);
+                    }
+                } else {
+                    alert('Failed to validate script');
+                }
+            } catch (error) {
+                alert('Failed to validate script. Please try again.');
+            }
+        }
+
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            location.reload();
+        }, 30000);
+
+        // Close modal on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                hideScriptModal();
+            }
+        });
+    </script>
+</body>
+</html>

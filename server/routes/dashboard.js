@@ -1,8 +1,9 @@
 const express = require('express');
 const { v4: uuidv4 } = require('uuid');
-const { deviceService } = require('../services/database');
+const { deviceService, customScriptService, analyticsService } = require('../services/database');
 const { authenticateToken } = require('../middleware/auth');
 const streamManager = require('../services/StreamManager');
+const scriptManager = require('../services/ScriptManager');
 
 const router = express.Router();
 
@@ -31,6 +32,91 @@ router.get('/dashboard', authenticateToken, async (req, res) => {
       user: req.user,
       devices: [],
       error: 'Failed to load devices',
+      serverAddress: process.env.ADDRESS || `${req.protocol}://${req.get('host')}`,
+    });
+  }
+});
+
+// Custom Scripts page
+router.get('/scripts', authenticateToken, async (req, res) => {
+  try {
+    const devices = await deviceService.getUserDevices(req.user.id);
+    const scripts = await customScriptService.getUserScripts(req.user.id);
+    
+    // Add runtime status to scripts
+    const scriptsWithStatus = scripts.map(script => ({
+      ...script,
+      isRunning: scriptManager.isScriptRunning(script.id),
+      runtimeInfo: scriptManager.getScriptInfo(script.id)
+    }));
+
+    res.render('scripts', {
+      user: req.user,
+      devices,
+      scripts: scriptsWithStatus,
+      success: req.query.success,
+      error: req.query.error,
+      serverAddress: process.env.ADDRESS || `${req.protocol}://${req.get('host')}`,
+    });
+  } catch (error) {
+    console.error('Scripts page error:', error);
+    res.render('scripts', {
+      user: req.user,
+      devices: [],
+      scripts: [],
+      error: 'Failed to load scripts',
+      serverAddress: process.env.ADDRESS || `${req.protocol}://${req.get('host')}`,
+    });
+  }
+});
+
+// Analytics page
+router.get('/analytics', authenticateToken, async (req, res) => {
+  try {
+    const devices = await deviceService.getUserDevices(req.user.id);
+    
+    // Get analytics summary for each device
+    const devicesWithAnalytics = await Promise.all(
+      devices.map(async (device) => {
+        try {
+          const totals = await analyticsService.getTotalDetections(device.id, req.user.id, '24h');
+          const analytics = await analyticsService.getDeviceAnalytics(device.id, req.user.id, '24h');
+          
+          return {
+            ...device,
+            analytics: {
+              total: totals.total,
+              events: totals.count,
+              detectionTypes: [...new Set(analytics.map(item => item.detectionType))]
+            }
+          };
+        } catch (error) {
+          console.error(`Error getting analytics for device ${device.id}:`, error);
+          return {
+            ...device,
+            analytics: {
+              total: 0,
+              events: 0,
+              detectionTypes: []
+            }
+          };
+        }
+      })
+    );
+
+    res.render('analytics', {
+      user: req.user,
+      devices: devicesWithAnalytics,
+      success: req.query.success,
+      error: req.query.error,
+      serverAddress: process.env.ADDRESS || `${req.protocol}://${req.get('host')}`,
+    });
+  } catch (error) {
+    console.error('Analytics page error:', error);
+    res.render('analytics', {
+      user: req.user,
+      devices: [],
+      error: 'Failed to load analytics',
       serverAddress: process.env.ADDRESS || `${req.protocol}://${req.get('host')}`,
     });
   }

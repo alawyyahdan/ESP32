@@ -1,0 +1,21 @@
+# Python requirements for ESP32-CAM Custom Scripts
+# Install with: pip install -r requirements.txt
+
+# Computer Vision
+opencv-python==4.8.1.78
+numpy==1.24.3
+
+# HTTP Requests
+requests==2.31.0
+
+# Image Processing (optional, for advanced scripts)
+Pillow==10.0.1
+
+# Scientific Computing (optional)
+scipy==1.11.4
+
+# Machine Learning (optional, for advanced detection)
+scikit-learn==1.3.2
+
+# Additional utilities
+python-dateutil==2.8.2
